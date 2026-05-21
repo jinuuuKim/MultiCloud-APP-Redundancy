@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>멀티클라우드 주문/재고 대시보드</title>
+  <style>
+    :root {
+      --bg1: #070b1f;
+      --bg2: #111827;
+      --card: rgba(255, 255, 255, 0.1);
+      --card2: rgba(255, 255, 255, 0.16);
+      --text: #f8fafc;
+      --muted: #cbd5e1;
+      --aws: #ff9900;
+      --azure: #4aa3ff;
+      --ok: #34d399;
+      --bad: #fb7185;
+      --line: rgba(255, 255, 255, 0.18);
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 20%, rgba(255, 153, 0, 0.28), transparent 28%),
+        radial-gradient(circle at 85% 15%, rgba(74, 163, 255, 0.33), transparent 30%),
+        radial-gradient(circle at 50% 100%, rgba(52, 211, 153, 0.16), transparent 30%),
+        linear-gradient(135deg, var(--bg1), var(--bg2));
+      overflow-x: hidden;
+    }
+
+    .noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(to bottom, black, transparent 85%);
+    }
+
+    header {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 52px 0 26px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      color: var(--muted);
+      backdrop-filter: blur(16px);
+    }
+
+    .pulse {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 0 rgba(52,211,153,.6);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(52,211,153,.6); }
+      70% { box-shadow: 0 0 0 13px rgba(52,211,153,0); }
+      100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+    }
+
+    h1 {
+      margin: 24px 0 12px;
+      font-size: clamp(34px, 5vw, 68px);
+      line-height: 1.02;
+      letter-spacing: -0.06em;
+    }
+
+    .gradient-text {
+      background: linear-gradient(90deg, #fff, #93c5fd, #fbbf24);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .subtitle {
+      max-width: 850px;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.7;
+    }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto 60px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: linear-gradient(180deg, var(--card2), var(--card));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px);
+      padding: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      background: radial-gradient(circle at 20% 0%, rgba(255,255,255,.16), transparent 28%);
+      pointer-events: none;
+    }
+
+    .card > * { position: relative; }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+
+    .cloud-pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      color: var(--muted);
+      font-size: 13px;
+      background: rgba(255,255,255,.07);
+    }
+
+    .clouds {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .clouds { grid-template-columns: 1fr; }
+    }
+
+    .cloud-card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 18px;
+      min-height: 156px;
+      background: rgba(0,0,0,.18);
+    }
+
+    .aws { box-shadow: inset 0 0 0 1px rgba(255,153,0,.25); }
+    .azure { box-shadow: inset 0 0 0 1px rgba(74,163,255,.25); }
+
+    .cloud-name {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 800;
+      font-size: 17px;
+      margin-bottom: 12px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .dot.aws-dot { background: var(--aws); box-shadow: 0 0 22px rgba(255,153,0,.9); }
+    .dot.azure-dot { background: var(--azure); box-shadow: 0 0 22px rgba(74,163,255,.9); }
+
+    .metric {
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+    }
+
+    .muted {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .form {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    input, select {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 16px;
+      padding: 14px 14px;
+      color: var(--text);
+      background: rgba(0,0,0,.22);
+      outline: none;
+      font-size: 15px;
+    }
+
+    input:focus, select:focus {
+      border-color: rgba(147,197,253,.75);
+      box-shadow: 0 0 0 4px rgba(59,130,246,.18);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 140px;
+      gap: 12px;
+    }
+
+    @media (max-width: 560px) {
+      .row { grid-template-columns: 1fr; }
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .buttons.three {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    @media (max-width: 640px) {
+      .buttons, .buttons.three { grid-template-columns: 1fr; }
+    }
+
+    button {
+      border: 0;
+      border-radius: 18px;
+      padding: 14px 16px;
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .18s ease, filter .18s ease, opacity .18s ease;
+    }
+
+    button:hover { transform: translateY(-2px); filter: brightness(1.06); }
+    button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+    .btn-aws {
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+    }
+
+    .btn-azure {
+      background: linear-gradient(135deg, #38bdf8, #2563eb);
+    }
+
+    .btn-main {
+      background: linear-gradient(135deg, #34d399, #3b82f6, #8b5cf6);
+    }
+
+    .result {
+      margin-top: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .result-box {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 16px;
+      background: rgba(0,0,0,.22);
+    }
+
+    .result-box h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #dbeafe;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(0,0,0,.18);
+    }
+
+    .icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: rgba(255,255,255,.1);
+      font-size: 20px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      width: min(420px, calc(100% - 44px));
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px 16px;
+      background: rgba(15,23,42,.92);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      transform: translateY(120%);
+      transition: transform .28s ease;
+      z-index: 20;
+    }
+
+    .toast.show { transform: translateY(0); }
+
+    .small {
+      font-size: 13px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="noise"></div>
+
+  <header>
+    <div class="badge"><span class="pulse"></span> Multi-Cloud API Lab · AWS API Gateway + Azure API Management</div>
+    <h1><span class="gradient-text">주문은 AWS, 재고는 Azure</span><br/>한 화면에서 호출합니다.</h1>
+    <p class="subtitle">
+      이 프론트엔드는 AWS API Gateway의 주문 API와 Azure API Management의 재고 API를 각각 호출합니다.
+      실무에서는 이런 구조를 통해 기존 AWS 시스템과 신규 Azure 시스템을 동시에 연결하는 전환기 아키텍처를 만들 수 있습니다.
+    </p>
+  </header>
+
+  <main class="grid">
+    <section class="card">
+      <div class="section-title">
+        <h2>🧪 API 호출 테스트</h2>
+        <span class="cloud-pill">Browser → AWS / Azure</span>
+      </div>
+
+      <div class="clouds">
+        <div class="cloud-card aws">
+          <div class="cloud-name">🟠 AWS API Gateway <span class="dot aws-dot"></span></div>
+          <div id="awsStatus" class="metric">대기</div>
+          <div class="muted">주문 접수 API</div>
+        </div>
+
+        <div class="cloud-card azure">
+          <div class="cloud-name">🔵 Azure API Management <span class="dot azure-dot"></span></div>
+          <div id="azureStatus" class="metric">대기</div>
+          <div class="muted">재고 확인 API</div>
+        </div>
+      </div>
+
+      <div class="buttons three">
+        <button class="btn-aws" onclick="checkAwsHealth()">AWS Health</button>
+        <button class="btn-azure" onclick="checkAzureHealth()">Azure Health</button>
+        <button class="btn-main" onclick="runFullFlow()">전체 주문 흐름 실행</button>
+      </div>
+
+      <div class="result">
+        <div class="result-box">
+          <h3>📦 주문 입력</h3>
+          <div class="form">
+            <div>
+              <label>고객명</label>
+              <input id="customerName" value="주일사마님" />
+            </div>
+
+            <div class="row">
+              <div>
+                <label>상품 코드</label>
+                <select id="productCode">
+                  <option value="SKU-AZURE-BOOK">SKU-AZURE-BOOK · Azure 교재</option>
+                  <option value="SKU-AWS-LAB">SKU-AWS-LAB · AWS 실습권</option>
+                  <option value="SKU-MULTICLOUD-PASS">SKU-MULTICLOUD-PASS · 멀티클라우드 패스</option>
+                  <option value="SKU-SECURITY-KIT">SKU-SECURITY-KIT · 보안 실습 키트</option>
+                </select>
+              </div>
+              <div>
+                <label>수량</label>
+                <input id="quantity" type="number" min="1" value="2" />
+              </div>
+            </div>
+
+            <div class="buttons">
+              <button class="btn-aws" onclick="createAwsOrder()">AWS 주문 접수</button>
+              <button class="btn-azure" onclick="checkAzureInventory()">Azure 재고 확인</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-box">
+          <h3>🟠 AWS 응답</h3>
+          <pre id="awsResult">아직 호출 전입니다.</pre>
+        </div>
+
+        <div class="result-box">
+          <h3>🔵 Azure 응답</h3>
+          <pre id="azureResult">아직 호출 전입니다.</pre>
+        </div>
+      </div>
+    </section>
+
+    <aside class="card">
+      <div class="section-title">
+        <h2>🧭 호출 흐름</h2>
+        <span class="cloud-pill">실무형 분리 구조</span>
+      </div>
+
+      <div class="timeline">
+        <div class="step">
+          <div class="icon">🌈</div>
+          <div>
+            <strong>Frontend</strong>
+            <div class="small">브라우저에서 두 클라우드 API를 각각 호출합니다.</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="icon">🟠</div>
+          <div>
+            <strong>AWS API Gateway</strong>
+            <div class="small">주문 접수 요청을 Lambda로 전달합니다.</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="icon">🔵</div>
+          <div>
+            <strong>Azure API Management</strong>
+            <div class="small">재고 API를 Azure Functions 백엔드로 프록시합니다.</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="icon">✅</div>
+          <div>
+            <strong>통합 결과</strong>
+            <div class="small">주문 ID, 재고 가능 여부, 물류센터, 예상 배송일을 한 화면에 표시합니다.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-box" style="margin-top:16px;">
+        <h3>🔧 현재 설정</h3>
+        <pre id="configView"></pre>
+      </div>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const CONFIG = {
+      AWS_API_BASE_URL: "https://k6709159ji.execute-api.ap-northeast-2.amazonaws.com/prod",
+      AZURE_APIM_BASE_URL: "https://apim-soldesk-multicloud-mellohn.azure-api.net/azure"
+    };
+
+    document.getElementById("configView").textContent = JSON.stringify(CONFIG, null, 2);
+
+    const $ = (id) => document.getElementById(id);
+
+    function showToast(message) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2800);
+    }
+
+    function getOrderInput() {
+      return {
+        customerName: $("customerName").value.trim() || "주일사마님",
+        productCode: $("productCode").value,
+        quantity: Number($("quantity").value || 1)
+      };
+    }
+
+    function renderJson(id, data) {
+      $(id).textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function callJson(url, options = {}) {
+      const started = performance.now();
+
+      const res = await fetch(url, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        }
+      });
+
+      const elapsedMs = Math.round(performance.now() - started);
+      const text = await res.text();
+
+      let body;
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = { raw: text };
+      }
+
+      if (!res.ok) {
+        throw {
+          status: res.status,
+          statusText: res.statusText,
+          elapsedMs,
+          body
+        };
+      }
+
+      return {
+        status: res.status,
+        elapsedMs,
+        body
+      };
+    }
+
+    async function checkAwsHealth() {
+      $("awsStatus").textContent = "호출중";
+      try {
+        const result = await callJson(`${CONFIG.AWS_API_BASE_URL}/health`);
+        $("awsStatus").textContent = `${result.elapsedMs}ms`;
+        renderJson("awsResult", result);
+        showToast("🟠 AWS Health 호출 성공");
+      } catch (e) {
+        $("awsStatus").textContent = "오류";
+        renderJson("awsResult", e);
+        showToast("🟠 AWS 호출 실패: CORS, URL, 라우트 확인");
+      }
+    }
+
+    async function checkAzureHealth() {
+      $("azureStatus").textContent = "호출중";
+      try {
+        const result = await callJson(`${CONFIG.AZURE_APIM_BASE_URL}/health`);
+        $("azureStatus").textContent = `${result.elapsedMs}ms`;
+        renderJson("azureResult", result);
+        showToast("🔵 Azure Health 호출 성공");
+      } catch (e) {
+        $("azureStatus").textContent = "오류";
+        renderJson("azureResult", e);
+        showToast("🔵 Azure 호출 실패: APIM CORS, 구독 필요, URL 확인");
+      }
+    }
+
+    async function createAwsOrder() {
+      $("awsStatus").textContent = "주문중";
+      const payload = getOrderInput();
+
+      try {
+        const result = await callJson(`${CONFIG.AWS_API_BASE_URL}/orders`, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+
+        $("awsStatus").textContent = `${result.elapsedMs}ms`;
+        renderJson("awsResult", result);
+        showToast("🟠 AWS 주문 접수 완료");
+        return result;
+      } catch (e) {
+        $("awsStatus").textContent = "오류";
+        renderJson("awsResult", e);
+        showToast("🟠 AWS 주문 API 실패");
+        throw e;
+      }
+    }
+
+    async function checkAzureInventory() {
+      $("azureStatus").textContent = "조회중";
+      const payload = getOrderInput();
+
+      try {
+        const result = await callJson(`${CONFIG.AZURE_APIM_BASE_URL}/inventory/check`, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+
+        $("azureStatus").textContent = `${result.elapsedMs}ms`;
+        renderJson("azureResult", result);
+        showToast("🔵 Azure 재고 확인 완료");
+        return result;
+      } catch (e) {
+        $("azureStatus").textContent = "오류";
+        renderJson("azureResult", e);
+        showToast("🔵 Azure 재고 API 실패");
+        throw e;
+      }
+    }
+
+    async function runFullFlow() {
+      showToast("🚀 멀티클라우드 주문 흐름을 실행합니다.");
+
+      try {
+        const [aws, azure] = await Promise.all([
+          createAwsOrder(),
+          checkAzureInventory()
+        ]);
+
+        const reservable = azure?.body?.inventory?.reservable;
+        showToast(
+          reservable
+            ? "✅ 주문 접수 + 재고 확인 모두 성공"
+            : "⚠️ 주문은 접수됐지만 재고가 부족합니다."
+        );
+
+        console.log("MULTICLOUD_RESULT", { aws, azure });
+      } catch {
+        showToast("❌ 전체 흐름 중 일부 API 호출이 실패했습니다.");
+      }
+    }
+  </script>
+</body>
+</html>

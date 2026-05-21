@@ -1,0 +1,13 @@
+{
+  "name": "multicloud-active-active-sync-app",
+  "version": "1.0.0",
+  "description": "AWS Azure Active-Active app with domain-owned DB synchronization",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mysql2": "^3.11.0"
+  }
+}
